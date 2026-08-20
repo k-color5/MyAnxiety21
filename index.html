@@ -1,0 +1,1178 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>안녕, 나의 불안 | 21일의 동행</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Google Fonts: Pretendard 대체로 깔끔하고 안락하게 볼 수 있는 Noto Sans KR 적용 및 세밀한 타이포그래피 설정 -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+    
+    <style>
+        body { 
+            font-family: 'Noto Sans KR', sans-serif; 
+            background-color: #ffffff;
+            background-image:
+                radial-gradient(circle at 12% 8%, rgba(94, 234, 212, 0.12), transparent 42%),
+                radial-gradient(circle at 88% 18%, rgba(45, 212, 191, 0.10), transparent 45%);
+            background-attachment: fixed;
+            color: #334155; 
+            line-height: 1.85; /* 눈이 피로하지 않도록 넉넉하고 편안한 줄간격 */
+            letter-spacing: 0.005em; /* 자간을 살짝 열어 가독성 강화 */
+            word-break: keep-all;
+        }
+        .leading-relaxed {
+            line-height: 1.9 !important;
+            letter-spacing: 0.01em;
+        }
+        .chart-container { 
+            position: relative; 
+            width: 100%; 
+            max-width: 600px; 
+            margin-left: auto; 
+            margin-right: auto; 
+            height: 300px; 
+        }
+        .day-card {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .day-card.completed { 
+            background-color: #f0fdf4; 
+            border-color: #a7f3d0; 
+            color: #065f46;
+        }
+        .day-card.active { 
+            border-color: #0d9488; 
+            box-shadow: 0 10px 20px -3px rgba(13, 148, 136, 0.18);
+            transform: translateY(-3px);
+        }
+        .glass-morphism { 
+            background: rgba(255, 255, 255, 0.85); 
+            backdrop-filter: blur(12px); 
+            border: 1px solid rgba(255, 255, 255, 0.4); 
+        }
+        .animate-fade-in {
+            animation: fadeIn 0.4s ease-out forwards;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        #toast {
+            position: fixed;
+            left: 50%;
+            bottom: 28px;
+            transform: translate(-50%, 20px);
+            background: #0f766e;
+            color: white;
+            padding: 12px 22px;
+            border-radius: 999px;
+            font-size: 13px;
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.35s ease;
+            z-index: 999;
+            white-space: nowrap;
+        }
+        #toast.show { opacity: 1; transform: translate(-50%, 0); }
+        @media print {
+            .no-print { display: none !important; }
+            nav { display: none !important; }
+            body { background: #fff !important; }
+            footer { background: #fff !important; color: #0f766e !important; }
+            footer * { color: #0f766e !important; }
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between">
+
+    <!-- CUSTOM ALERT MODAL -->
+    <div id="toast"></div>
+    <div id="custom-alert-modal" class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 hidden">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl text-center space-y-4 animate-fade-in">
+            <div class="text-4xl">🌿</div>
+            <h3 class="text-lg font-semibold text-slate-800 leading-snug" id="custom-alert-title">안내</h3>
+            <p class="text-sm text-slate-500 leading-relaxed" id="custom-alert-message">내용</p>
+            <button onclick="closeCustomAlert()" class="w-full py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-medium rounded-xl transition-all text-sm">확인</button>
+        </div>
+    </div>
+
+    <!-- 1. 찬물 한 모금 마시기 모달 -->
+    <div id="water-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 hidden">
+        <div class="bg-white rounded-3xl max-w-md w-full p-8 shadow-2xl text-center space-y-6 animate-fade-in">
+            <!-- -->
+            <!-- 유리컵 및 실시간 마시는 모션 가시화 장치 -->
+            <div class="relative w-28 h-36 mx-auto border-t border-x-4 border-b-8 border-slate-300 rounded-b-3xl overflow-hidden bg-slate-100/40 shadow-inner flex items-end">
+                <!-- 물 액체 레이어 -->
+                <div id="water-liquid" class="w-full bg-sky-400/80 h-full transition-all duration-[10000ms] ease-linear origin-bottom"></div>
+                <!-- 얼음 조각들 (물 높이에 따라 내려앉으며 사라짐) -->
+                <div id="water-ice" class="absolute inset-0 pointer-events-none flex items-center justify-center gap-1.5 opacity-70 transition-all duration-[10000ms] ease-linear">
+                    <span class="text-xl">🧊</span>
+                    <span class="text-lg">🧊</span>
+                </div>
+            </div>
+            <h4 class="text-xl font-bold text-slate-800 leading-snug">찬물 한 모금 입 안에 머금기</h4>
+            <p class="text-sm text-slate-500 leading-relaxed text-left">
+                주변 소란을 잠시 멈추고 시원한 찬물을 한 모금만 가만히 입안 가득 머금어보세요.<br><br>
+                차가운 물이 혀끝과 입 안 구석구석을 부드럽게 감싸 안을 때 일어나는 감각의 청량한 온도 변화에만 온전히 생각을 모아봅니다.
+            </p>
+            <div class="text-sm text-slate-400 font-semibold" id="water-timer-text">차가운 물에 감각을 수렴하는 중 (10초)</div>
+            <button onclick="closeWaterModal()" class="w-full py-3 bg-teal-700 text-white text-sm font-semibold rounded-xl hover:bg-teal-600 transition-all">차분해졌습니다</button>
+        </div>
+    </div>
+
+    <!-- 2. 5-4-3-2-1 접지기법 인터랙티브 위저드 모달 -->
+    <div id="grounding-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 hidden">
+        <div class="bg-white rounded-3xl max-w-md w-full p-8 shadow-2xl space-y-6 animate-fade-in">
+            <div class="flex justify-between items-center border-b border-slate-150 pb-3">
+                <h4 class="text-lg font-bold text-slate-800 flex items-center gap-2">🐾 5-4-3-2-1 접지기법</h4>
+                <span class="text-sm text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full font-bold" id="grounding-step-badge">5단계</span>
+            </div>
+            
+            <div class="space-y-4 py-2">
+                <p class="text-sm text-slate-600 leading-relaxed min-h-[80px]" id="grounding-instruction">
+                    지시사항이 이곳에 동적으로 노출됩니다.
+                </p>
+                <div class="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                    <div id="grounding-progress-bar" class="bg-teal-600 h-full w-1/5 transition-all duration-300"></div>
+                </div>
+            </div>
+
+            <div class="flex gap-3">
+                <button id="grounding-prev-btn" onclick="prevGroundingStep()" class="flex-1 py-3 border border-slate-200 text-slate-600 rounded-xl font-semibold hover:bg-slate-50 transition-all text-sm hidden">이전 단계</button>
+                <button id="grounding-next-btn" onclick="nextGroundingStep()" class="flex-[2] py-3 bg-teal-700 text-white rounded-xl font-bold hover:bg-teal-600 transition-all text-sm">확인했습니다</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. 어깨 안고 다독이기 (나비포옹법) 모달 -->
+    <div id="butterfly-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 hidden">
+        <div class="bg-white rounded-3xl max-w-md w-full p-8 shadow-2xl text-center space-y-6 animate-fade-in">
+            <span class="text-5xl block">🦋</span>
+            <h4 class="text-xl font-bold text-slate-800 leading-snug">나비 포옹기법 (Butterfly Hug)</h4>
+            <p class="text-sm text-slate-500 leading-relaxed text-left">
+                두 손을 가슴 앞으로 교차하여 왼쪽 어깨와 오른쪽 어깨를 지그시 포갭니다.<br><br>
+                화면 속 양 날개가 교대로 속삭이는 치유의 신호와 박자에 따라, 좌우 어깨를 부드럽게 토닥여 주며 몸의 닻을 느껴보세요.
+            </p>
+
+            <!-- 나비 토닥임 인터랙터 -->
+            <div class="flex justify-center items-center gap-10 py-4">
+                <div id="wing-left" class="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center font-bold text-slate-400 text-sm transition-all duration-300 border border-slate-200">
+                    왼쪽 토닥 (L)
+                </div>
+                <div id="wing-right" class="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center font-bold text-slate-400 text-sm transition-all duration-300 border border-slate-200">
+                    오른쪽 토닥 (R)
+                </div>
+            </div>
+
+            <div class="text-sm text-emerald-600 font-bold" id="butterfly-status">좌우 번갈아 가볍게 두드리며 신체 감각을 조율해 주세요</div>
+            <button onclick="closeButterflyModal()" class="w-full py-3 bg-teal-700 text-white text-sm font-semibold rounded-xl hover:bg-teal-600 transition-all">몸이 안정을 되찾았습니다</button>
+        </div>
+    </div>
+
+    <!-- NAVIGATION HEADER -->
+    <nav class="sticky top-0 z-50 glass-morphism border-b border-slate-150 px-6 py-4">
+        <div class="max-w-6xl mx-auto flex justify-between items-center">
+            <div class="flex items-center space-x-2.5 cursor-pointer" onclick="showSection('dashboard')">
+                <span class="text-2xl">🌿</span>
+                <div>
+                    <h1 class="text-lg font-bold text-slate-800 tracking-tight leading-none">안녕, 나의 불안</h1>
+                    <p class="text-[13px] text-slate-400 mt-1 tracking-wider uppercase font-semibold">21일간의 온화한 동행</p>
+                </div>
+            </div>
+            <div class="hidden md:flex items-center space-x-6 text-sm font-medium">
+                <button onclick="showSection('dashboard')" class="text-slate-600 hover:text-slate-900 transition-all">나의 여정</button>
+                <button onclick="showSection('daily')" class="text-slate-600 hover:text-slate-900 transition-all">오늘의 치유</button>
+                <button onclick="showSection('insights')" class="text-slate-600 hover:text-slate-900 transition-all">통계 보고서</button>
+                <button onclick="showSection('emergency')" class="px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-full transition-all">긴급 안정 도구</button>
+            </div>
+            <!-- Mobile Menu Toggle Button -->
+            <button class="md:hidden p-2 text-slate-600 focus:outline-none" onclick="toggleMobileMenu()">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+            </button>
+        </div>
+        <!-- Mobile Dropdown Menu -->
+        <div id="mobile-menu" class="hidden md:hidden mt-3 pt-3 border-t border-slate-200/60 flex flex-col space-y-3 pb-2 text-sm font-medium animate-fade-in">
+            <button onclick="showSection('dashboard'); toggleMobileMenu()" class="text-left py-1.5 px-2 hover:bg-slate-100/50 rounded-lg text-slate-700">나의 여정</button>
+            <button onclick="showSection('daily'); toggleMobileMenu()" class="text-left py-1.5 px-2 hover:bg-slate-100/50 rounded-lg text-slate-700">오늘의 치유</button>
+            <button onclick="showSection('insights'); toggleMobileMenu()" class="text-left py-1.5 px-2 hover:bg-slate-100/50 rounded-lg text-slate-700">통계 보고서</button>
+            <button onclick="showSection('emergency'); toggleMobileMenu()" class="text-left py-1.5 px-2 bg-rose-50 text-rose-600 rounded-lg">긴급 안정 도구</button>
+        </div>
+    </nav>
+
+    <!-- SHARE & SAVE ACTION BAR -->
+    <div class="no-print border-b border-teal-100 bg-teal-50/60">
+        <div class="max-w-6xl mx-auto px-6 py-3 flex flex-wrap justify-center gap-2.5">
+            <a href="https://blog.naver.com/mt2700" target="_blank" rel="noopener"
+               class="inline-flex items-center gap-1.5 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold rounded-full transition-all shadow-sm">
+                🌿 이야기정원 블로그
+            </a>
+            <button onclick="shareToKakao()"
+               class="inline-flex items-center gap-1.5 px-4 py-2 bg-white hover:bg-teal-50 text-teal-700 border border-teal-200 text-sm font-semibold rounded-full transition-all">
+                💬 카카오톡 공유
+            </button>
+            <button onclick="copyForBlog()"
+               class="inline-flex items-center gap-1.5 px-4 py-2 bg-white hover:bg-teal-50 text-teal-700 border border-teal-200 text-sm font-semibold rounded-full transition-all">
+                📋 블로그용 복사
+            </button>
+            <button onclick="window.print()"
+               class="inline-flex items-center gap-1.5 px-4 py-2 bg-white hover:bg-teal-50 text-teal-700 border border-teal-200 text-sm font-semibold rounded-full transition-all">
+                🖨 PDF로 저장
+            </button>
+        </div>
+    </div>
+
+    <!-- MAIN BODY -->
+    <main class="max-w-6xl w-full mx-auto p-6 flex-grow">
+
+        <!-- 1. DASHBOARD SECTION -->
+        <section id="dashboard" class="space-y-10 animate-fade-in">
+            <header class="text-center space-y-4 max-w-2xl mx-auto">
+                <span class="text-sm font-semibold tracking-widest text-emerald-600 bg-emerald-50 px-3.5 py-1.5 rounded-full uppercase">Self-Compassion Program</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-slate-800 tracking-tight leading-snug">
+                    불안을 안아주는<br class="sm:hidden"> 21일간의 아름다운 동행
+                </h2>
+                <p class="text-sm text-slate-500 leading-relaxed">
+                    불안은 당신을 공격하는 포악한 적이 아니라, 당신을 지키고 싶어 필사적으로 소리치는 내면의 소박하고 서툰 보호자입니다. 21일 동안 다정한 마음 챙김으로 그 친구의 말에 귀를 기울여 주세요.
+                </p>
+                <div class="flex justify-center items-center space-x-4 pt-2">
+                    <div class="bg-white px-6 py-3 rounded-2xl shadow-sm border border-slate-100 text-left">
+                        <p class="text-[13px] text-slate-400 font-bold uppercase tracking-wider">현재 진척도</p>
+                        <p class="text-xl font-bold text-slate-700" id="progress-text">Day 1 / 21</p>
+                    </div>
+                    <div class="bg-white px-6 py-3 rounded-2xl shadow-sm border border-slate-100 text-left">
+                        <p class="text-[13px] text-slate-400 font-bold uppercase tracking-wider">내면 안도감</p>
+                        <p class="text-xl font-bold text-emerald-600" id="repose-rate">60%</p>
+                    </div>
+                </div>
+            </header>
+
+            <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-4" id="journey-grid">
+                <!-- Days are generated dynamically via JavaScript -->
+            </div>
+        </section>
+
+        <!-- 2. DAILY EXERCISE SECTION -->
+        <section id="daily" class="hidden space-y-8 max-w-2xl mx-auto animate-fade-in">
+            <div class="bg-white rounded-3xl p-6 md:p-8 shadow-xl border border-slate-100 space-y-8">
+                
+                <!-- Day Header -->
+                <div class="border-b border-slate-150 pb-5 flex justify-between items-start">
+                    <div class="space-y-1">
+                        <h3 class="text-xl font-bold text-slate-800 leading-snug" id="daily-title">Day 1: 낯선 방문자와 인사하기</h3>
+                        <p class="text-slate-400 text-sm leading-relaxed" id="daily-subtitle">불안의 존재를 밀어내지 않고, 다정하게 자각해 봅니다.</p>
+                    </div>
+                    <span class="text-3xl p-3 bg-slate-50 rounded-2xl" id="daily-icon">👋</span>
+                </div>
+
+                <!-- Wizard Step 1: Mood Labeling with 15 Feelings -->
+                <div class="step space-y-6" id="step-1">
+                    <div class="space-y-2">
+                        <h4 class="font-bold text-slate-800 text-base flex items-center leading-snug">
+                            <span class="w-6 h-6 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center mr-2 text-sm font-bold">1</span>
+                            지금 감지되는 불안의 강도는 어떤가요?
+                        </h4>
+                        <p class="text-sm text-slate-400 leading-relaxed pl-8">감각의 세기를 0(거의 느껴지지 않음)에서 100(매우 견디기 힘듦) 사이로 섬세하게 측정해 보세요.</p>
+                    </div>
+
+                    <div class="space-y-4 pl-0 sm:pl-8">
+                        <input type="range" min="0" max="100" value="50" class="w-full h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-slate-600" id="anxiety-range" oninput="updateRangeText(this.value)">
+                        <div class="flex justify-between text-sm text-slate-400 font-semibold px-1 leading-normal">
+                            <span>거의 느껴지지 않음 (0)</span>
+                            <span class="text-slate-600 font-bold" id="range-value-display">수치: 50</span>
+                            <span>매우 강함 (100)</span>
+                        </div>
+                    </div>
+
+                    <div class="space-y-4 pt-5 border-t border-slate-150">
+                        <div class="space-y-2">
+                            <h4 class="font-bold text-slate-800 text-base flex items-center leading-snug">
+                                <span class="w-6 h-6 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center mr-2 text-sm font-bold">2</span>
+                                🌿 지금의 불안은 어떤 모습에 가장 가까운가요?
+                            </h4>
+                            <p class="text-sm text-slate-400 leading-relaxed pl-8">아래 나열된 15가지 불안의 감정 단어 중 내 마음을 가증 잘 비추는 한 단어에만 지그시 몰입해 봅니다.</p>
+                        </div>
+
+                        <!-- 15 Emotion Buttons Grid -->
+                        <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5 pl-0 sm:pl-8" id="emotion-grid">
+                            <button class="mood-btn border border-slate-200 p-3 rounded-xl hover:bg-slate-50 hover:border-slate-300 transition-all text-sm text-left font-medium flex items-center justify-between leading-normal" onclick="selectMood(this, '걱정')">
+                                <span>🤔 걱정</span> <span class="text-[13px] text-slate-300">□</span>
+                            </button>
+                            <button class="mood-btn border border-slate-200 p-3 rounded-xl hover:bg-slate-50 hover:border-slate-300 transition-all text-sm text-left font-medium flex items-center justify-between leading-normal" onclick="selectMood(this, '두려움')">
+                                <span>😨 두려움</span> <span class="text-[13px] text-slate-300">□</span>
+                            </button>
+                            <button class="mood-btn border border-slate-200 p-3 rounded-xl hover:bg-slate-50 hover:border-slate-300 transition-all text-sm text-left font-medium flex items-center justify-between leading-normal" onclick="selectMood(this, '초조함')">
+                                <span>😰 초조함</span> <span class="text-[13px] text-slate-300">□</span>
+                            </button>
+                            <button class="mood-btn border border-slate-200 p-3 rounded-xl hover:bg-slate-50 hover:border-slate-300 transition-all text-sm text-left font-medium flex items-center justify-between leading-normal" onclick="selectMood(this, '긴장')">
+                                <span>😬 긴장</span> <span class="text-[13px] text-slate-300">□</span>
+                            </button>
+                            <button class="mood-btn border border-slate-200 p-3 rounded-xl hover:bg-slate-50 hover:border-slate-300 transition-all text-sm text-left font-medium flex items-center justify-between leading-normal" onclick="selectMood(this, '불확실함')">
+                                <span>🌫️ 불확실함</span> <span class="text-[13px] text-slate-300">□</span>
+                            </button>
+                            <button class="mood-btn border border-slate-200 p-3 rounded-xl hover:bg-slate-50 hover:border-slate-300 transition-all text-sm text-left font-medium flex items-center justify-between leading-normal" onclick="selectMood(this, '답답함')">
+                                <span>😣 답답함</span> <span class="text-[13px] text-slate-300">□</span>
+                            </button>
+                            <button class="mood-btn border border-slate-200 p-3 rounded-xl hover:bg-slate-50 hover:border-slate-300 transition-all text-sm text-left font-medium flex items-center justify-between leading-normal" onclick="selectMood(this, '혼란')">
+                                <span>🌀 혼란</span> <span class="text-[13px] text-slate-300">□</span>
+                            </button>
+                            <button class="mood-btn border border-slate-200 p-3 rounded-xl hover:bg-slate-50 hover:border-slate-300 transition-all text-sm text-left font-medium flex items-center justify-between leading-normal" onclick="selectMood(this, '외로움')">
+                                <span>🌙 외로움</span> <span class="text-[13px] text-slate-300">□</span>
+                            </button>
+                            <button class="mood-btn border border-slate-200 p-3 rounded-xl hover:bg-slate-50 hover:border-slate-300 transition-all text-sm text-left font-medium flex items-center justify-between leading-normal" onclick="selectMood(this, '무기력')">
+                                <span>☁️ 무기력</span> <span class="text-[13px] text-slate-300">□</span>
+                            </button>
+                            <button class="mood-btn border border-slate-200 p-3 rounded-xl hover:bg-slate-50 hover:border-slate-300 transition-all text-sm text-left font-medium flex items-center justify-between leading-normal" onclick="selectMood(this, '압박감')">
+                                <span>🧱 압박감</span> <span class="text-[13px] text-slate-300">□</span>
+                            </button>
+                            <button class="mood-btn border border-slate-200 p-3 rounded-xl hover:bg-slate-50 hover:border-slate-300 transition-all text-sm text-left font-medium flex items-center justify-between leading-normal" onclick="selectMood(this, '조급함')">
+                                <span>⏳ 조급함</span> <span class="text-[13px] text-slate-300">□</span>
+                            </button>
+                            <button class="mood-btn border border-slate-200 p-3 rounded-xl hover:bg-slate-50 hover:border-slate-300 transition-all text-sm text-left font-medium flex items-center justify-between leading-normal" onclick="selectMood(this, '불안감')">
+                                <span>💭 불안감</span> <span class="text-[13px] text-slate-300">□</span>
+                            </button>
+                            <button class="mood-btn border border-slate-200 p-3 rounded-xl hover:bg-slate-50 hover:border-slate-300 transition-all text-sm text-left font-medium flex items-center justify-between leading-normal" onclick="selectMood(this, '예민함')">
+                                <span>⚡ 예민함</span> <span class="text-[13px] text-slate-300">□</span>
+                            </button>
+                            <button class="mood-btn border border-slate-200 p-3 rounded-xl hover:bg-slate-50 hover:border-slate-300 transition-all text-sm text-left font-medium flex items-center justify-between leading-normal" onclick="selectMood(this, '자신 없음')">
+                                <span>🪞 자신 없음</span> <span class="text-[13px] text-slate-300">□</span>
+                            </button>
+                            <button class="mood-btn border border-slate-200 p-3 rounded-xl hover:bg-slate-50 hover:border-slate-300 transition-all text-sm text-left font-medium flex items-center justify-between leading-normal" onclick="selectMood(this, '지침')">
+                                <span>🫧 지침</span> <span class="text-[13px] text-slate-300">□</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Inner Need & Reframing Coaching Card Display -->
+                    <div id="need-card" class="hidden rounded-2xl border border-emerald-100 bg-[#fbfdfb] p-5 space-y-3 shadow-inner animate-fade-in pl-0 sm:pl-8 ml-0 sm:ml-8 leading-relaxed">
+                        <div class="flex items-center space-x-2">
+                            <span class="text-emerald-600 text-lg">🗝️</span>
+                            <p class="text-sm font-bold text-slate-800 leading-snug">불안의 내면에 숨겨진 속삭임</p>
+                        </div>
+                        <div class="text-sm text-slate-600 space-y-2.5">
+                            <p class="leading-normal">선택한 현재 감정: <span id="selected-emotion" class="font-bold text-slate-800 underline underline-offset-4 decoration-slate-300">걱정</span></p>
+                            <p class="leading-normal">이 신호의 숨겨진 욕구: <strong id="selected-need" class="text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded">안전하고 싶다</strong>는 소망</p>
+                            <div class="h-[1px] bg-slate-100 my-2"></div>
+                            <p class="font-medium text-slate-700 italic bg-slate-50 p-4 rounded-xl leading-relaxed">
+                                💡 오늘 깊이 성찰하기: <span id="selected-question" class="text-slate-800 font-semibold leading-relaxed">지금 내가 안전하다고 느끼기 위해 필요한 것은 무엇인가요?</span>
+                            </p>
+                        </div>
+                    </div>
+
+                    <button onclick="nextStep(2)" class="w-full py-4 bg-teal-700 hover:bg-teal-600 text-white rounded-2xl font-bold transition-all shadow-md text-sm">다음 단계로 이동</button>
+                </div>
+
+                <!-- Wizard Step 2: Cognitive Reframing Form -->
+                <div class="step space-y-6 hidden animate-fade-in" id="step-2">
+                    <div class="space-y-2">
+                        <h4 class="font-bold text-slate-800 text-base flex items-center leading-snug">
+                            <span class="w-6 h-6 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center mr-2 text-sm font-bold">2</span>
+                            불안이라는 동반자(보호자)의 목소리를 지혜롭게 통역하기
+                        </h4>
+                        <p class="text-sm text-slate-400 leading-relaxed pl-8">서툰 불안이 건네는 왜곡된 두려움을 있는 그대로 적고, 나를 보호하려 애썼던 진짜 숭고한 동기에 귀 기울여 봅니다.</p>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5 pl-0 sm:pl-8 leading-relaxed">
+                        <div class="space-y-2">
+                            <label class="text-sm font-semibold text-slate-400 tracking-wider uppercase block leading-normal">동반자가 내게 건네는 가상의 파국화된 경보</label>
+                            <textarea id="fear-text" class="w-full p-4 rounded-xl border border-slate-200 focus:ring-1 focus:ring-slate-400 outline-none h-36 text-sm leading-relaxed" placeholder="예: '이번 발표에서 실수를 하면 모두가 나를 비웃고 영영 버림받을지 몰라'"></textarea>
+                        </div>
+                        <div class="space-y-2">
+                            <label class="text-sm font-semibold text-emerald-600 tracking-wider uppercase block leading-normal">경고장 이면에 담긴 나를 소중히 보살피려는 진짜 이유</label>
+                            <textarea id="reframe-text" class="w-full p-4 rounded-xl border border-emerald-100 bg-[#fafdfb] focus:ring-1 focus:ring-emerald-400 outline-none h-36 text-sm leading-relaxed text-slate-700" placeholder="예: '내가 남들에게 깊이 상처받지 않고 안전하기를 온 힘으로 보호하고 싶어서 격렬히 마음의 경보를 울렸던 거구나'"></textarea>
+                        </div>
+                    </div>
+
+                    <div class="flex space-x-3 pl-0 sm:pl-8">
+                        <button onclick="nextStep(1)" class="flex-1 py-3.5 border border-slate-200 text-slate-600 rounded-xl font-semibold hover:bg-slate-50 transition-all text-sm leading-none">이전 단계</button>
+                        <button onclick="nextStep(3)" class="flex-[2] py-3.5 bg-teal-700 hover:bg-teal-600 text-white rounded-xl font-bold transition-all shadow-md text-sm leading-none">성찰 완료하기</button>
+                    </div>
+                </div>
+
+                <!-- Wizard Step 3: Positive Affirmation & Completed action -->
+                <div class="step space-y-6 hidden text-center py-6 animate-fade-in" id="step-3">
+                    <div class="space-y-3">
+                        <div class="text-6xl animate-bounce">🌱</div>
+                        <h4 class="text-xl font-bold text-slate-800 leading-snug">오늘의 온화한 동행을 완수했습니다!</h4>
+                        <p class="text-slate-400 text-sm leading-relaxed max-w-sm mx-auto">
+                            당신은 오늘 불안이라는 서투른 내면의 보호자와 마주 앉아 다정한 온기를 나누었습니다. 자신을 부드럽게 쓰다듬어 주며 안도감을 안겨주세요.
+                        </p>
+                    </div>
+                    <button onclick="finishDaily()" class="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-bold transition-all shadow-md text-sm">기록 보관함에 마음 성찰 등록</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- 3. INSIGHTS SECTION -->
+        <section id="insights" class="hidden space-y-10 animate-fade-in">
+            <header class="text-center space-y-2 max-w-lg mx-auto">
+                <h3 class="text-2xl font-bold text-slate-800 tracking-tight leading-snug">내면의 성찰 정원 기록</h3>
+                <p class="text-slate-400 text-sm leading-relaxed">
+                    매일 정성을 들인 치유 기록을 바탕으로 내면의 파동과 불안의 진짜 얼굴들이 어떻게 평안한 안식에 도달하고 있는지 한눈에 관조해 봅니다.
+                </p>
+            </header>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 leading-relaxed">
+                <!-- Anxiety Chart -->
+                <div class="bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-slate-100 space-y-4">
+                    <div class="flex items-center space-x-2">
+                        <span class="text-slate-400">📈</span>
+                        <h4 class="text-sm font-bold text-slate-500 uppercase tracking-widest leading-none">일주일 불안 강도 추이</h4>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="anxietyChart"></canvas>
+                    </div>
+                    <p class="text-[14px] text-slate-400 text-center leading-relaxed">부정적 감정을 억압하지 않고 그대로 명명(Labeling)할 때 찾아오는 안정과 해소의 흐름입니다.</p>
+                </div>
+                <!-- Mood Distribution Chart -->
+                <div class="bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-slate-100 space-y-4">
+                    <div class="flex items-center space-x-2">
+                        <span class="text-slate-400">📊</span>
+                        <h4 class="text-sm font-bold text-slate-500 uppercase tracking-widest leading-none">가장 빈번하게 마주한 마음</h4>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="moodChart"></canvas>
+                    </div>
+                    <p class="text-[14px] text-slate-400 text-center leading-relaxed">불안의 장벽 속에 가려져 있던 감정 단어들의 실제 비율 분포 분석입니다.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- 4. EMERGENCY SECTION -->
+        <section id="emergency" class="hidden max-w-xl mx-auto text-center space-y-10 py-6 animate-fade-in">
+            <div class="space-y-3">
+                <span class="text-rose-500 font-semibold tracking-widest uppercase text-sm leading-none">Emergency Grounding</span>
+                <h3 class="text-2xl font-bold text-slate-800 leading-snug">가볍게 마음의 닻을 내리기</h3>
+                <p class="text-slate-400 text-sm leading-relaxed max-w-md mx-auto">
+                    과도하게 경고음이 울려 생각이 통제하기 힘들게 휩쓸릴 때에는, 머릿속 어지러운 잡음을 가만히 치워 두고 아래 부드러운 순환 리듬에만 오롯이 호흡을 고정해 보세요.
+                </p>
+                <!-- 경고음 체험/해제 토글 버튼 -->
+                <div class="pt-2 relative flex justify-center">
+                    <button id="alarm-btn" onclick="AudioEngine.toggleAlarm()" class="px-5 py-2.5 bg-rose-50 text-rose-600 rounded-full text-sm font-semibold hover:bg-rose-100 transition-all inline-flex items-center gap-1.5 shadow-sm leading-none">
+                        <span id="alarm-btn-icon">🚨</span>
+                        <span id="alarm-btn-text">과도한 경고음 체험</span>
+                    </button>
+                    <!-- 비주얼 경고 효과 -->
+                    <div id="alarm-pulsing-glow" class="absolute -inset-1 rounded-full bg-rose-500/20 blur animate-ping hidden pointer-events-none"></div>
+                </div>
+            </div>
+
+            <!-- 4-3-4 마음의 닻 호흡 서클 가이드 -->
+            <div class="relative flex justify-center items-center h-56">
+                <!-- Visual Background Glow -->
+                <div class="absolute w-44 h-44 bg-slate-100 rounded-full animate-ping opacity-25"></div>
+                <div id="breath-circle" class="w-36 h-36 bg-teal-600 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-2xl transition-all duration-[4000ms] ease-in-out">
+                    숨 들이마시기 (4초)
+                </div>
+            </div>
+
+            <!-- Grounding Sensory Grid -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-left leading-relaxed">
+                <button onclick="triggerWaterGrounding()" class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-1.5 transition-all hover:scale-[1.02] hover:shadow-md cursor-pointer outline-none focus:ring-2 focus:ring-sky-200">
+                    <span class="text-xl">💧</span>
+                    <h5 class="text-sm font-bold text-slate-700 leading-snug">찬물 한 모금 마시기</h5>
+                    <p class="text-[13px] text-slate-400 leading-relaxed">혀끝을 가볍게 스쳐 가는 서늘한 한기를 조용히 음미하며 교감 신경의 격양된 리듬을 차분하게 어루만져 줍니다.</p>
+                </button>
+                <button onclick="triggerSensoryGrounding()" class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-1.5 transition-all hover:scale-[1.02] hover:shadow-md cursor-pointer outline-none focus:ring-2 focus:ring-slate-200">
+                    <span class="text-xl">🐾</span>
+                    <h5 class="text-sm font-bold text-slate-700 leading-snug">5-4-3-2-1 접지기법</h5>
+                    <p class="text-[13px] text-slate-400 leading-relaxed">눈길에 와닿는 사물과 피부 끝의 작은 자각들에 하나씩 의식을 머무르게 하여 단단히 땅에 닻을 내립니다.</p>
+                </button>
+                <button onclick="triggerButterflyGrounding()" class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-1.5 transition-all hover:scale-[1.02] hover:shadow-md cursor-pointer outline-none focus:ring-2 focus:ring-emerald-200">
+                    <span class="text-xl">🦋</span>
+                    <h5 class="text-sm font-bold text-slate-700 leading-snug">어깨 안고 다독이기</h5>
+                    <p class="text-[13px] text-slate-400 leading-relaxed">양팔을 교차해 스스로를 안아 나비포옹하며 '나는 지금 여기에 안전하게 보호받으며 머문다'고 마음을 돌봅니다.</p>
+                </button>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="bg-teal-950 text-teal-100/70 py-10 px-6 mt-20 text-sm">
+        <div class="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center space-y-6 md:space-y-0 leading-relaxed">
+            <div class="text-center md:text-left space-y-1">
+                <h2 class="text-white font-bold text-sm tracking-wide leading-snug">안녕, 나의 불안</h2>
+                <p class="text-[14px] leading-relaxed">우리가 스스로의 불안에 조심스레 안부를 묻고 대접할 때, 내면의 우주는 더욱 안락한 둥지가 됩니다.</p>
+            </div>
+            <div class="flex space-x-6 text-[14px]">
+                <a href="#" onclick="event.preventDefault(); showCustomAlert('이용안내', '본 프로그램은 비영리 목적으로 제작된 21일 수용 치유 저널 웹앱입니다.')" class="hover:text-white transition-all">이용안내</a>
+                <a href="#" onclick="event.preventDefault(); showCustomAlert('개인정보처리방침', '당신의 소중한 마음의 날씨와 자필 성찰은 외부로 유출되지 않고 전적으로 내 기기의 Local Storage에만 봉인되어 보호됩니다.')" class="hover:text-white transition-all">안전 가이드</a>
+                <a href="#" onclick="event.preventDefault(); showCustomAlert('도움말', '매일의 일기장 카드를 터치하여 감정 꼬리표를 짓고 [마음 성찰 등록] 단계를 순차적으로 완료하면, 나만의 아름다운 동행 나이테가 채워집니다.')" class="hover:text-white transition-all">치유 가이드라인</a>
+            </div>
+        </div>
+        <div class="max-w-6xl mx-auto border-t border-teal-900 mt-6 pt-6 text-center text-[13px] text-teal-200/60 leading-normal space-y-1">
+            <p>© 2026 Befriend Anxiety. All rights reserved. Every emotional re-structuring is a step to wisdom.</p>
+            <p class="text-teal-200/40">이야기정원AI by 리오</p>
+        </div>
+    </footer>
+
+    <!-- JAVASCRIPT SYSTEM CORE -->
+    <script>
+        
+        // --- Data Storage & State ---
+        let appState = {
+            currentDay: 1,
+            completedDays: [],
+            anxietyLogs: [55, 62, 48, 50, 42, 38, 45], // Default graph data
+            moodDistribution: { 
+                '걱정': 0, '두려움': 0, '초조함': 0, '긴장': 0, '불확실함': 0, 
+                '답답함': 0, '혼란': 0, '외로움': 0, '무기력': 0, '압박감': 0, 
+                '조급함': 0, '불안감': 0, '예민함': 0, '자신 없음': 0, '지침': 0 
+            },
+            activeMood: null
+        };
+
+        // All 21 Days detailed roadmap
+        const journeyData = [
+            { id: 1, title: "낯선 방문자와 인사하기", icon: "👋" },
+            { id: 2, title: "불안의 신체 반응 관찰하기", icon: "🔍" },
+            { id: 3, title: "불안의 고유한 이름표 붙이기", icon: "🏷️" },
+            { id: 4, title: "위험 감지 센서 정상성 판정", icon: "📡" },
+            { id: 5, title: "나를 구하고자 했던 속마음", icon: "🛡️" },
+            { id: 6, title: "불안이 싹튼 과거 시간여행", icon: "🕰️" },
+            { id: 7, title: "서툰 안전 경비원의 경고장", icon: "✉️" },
+            { id: 8, title: "내 생각의 안전 둥지 조성", icon: "🏡" },
+            { id: 9, title: "호흡으로 몸과 근육 다스리기", icon: "💨" },
+            { id: 10, title: "생각 구름 흘려보내는 하늘 되기", icon: "☁️" },
+            { id: 11, title: "‘그럼 어쩌지’ 소설의 마침표", icon: "📖" },
+            { id: 12, title: "불안의 서슬 퍼런 파도 타기", icon: "🌊" },
+            { id: 13, title: "완벽함이란 허상 내던지기", icon: "💎" },
+            { id: 14, title: "나에게 건네는 자비의 한 문장", icon: "🗣️" },
+            { id: 15, title: "소소하게 내 영토 통제하기", icon: "🎯" },
+            { id: 16, title: "감사의 보석 세 알 수집하기", icon: "🌿" },
+            { id: 17, title: "발바닥 아래 굳건한 대지 감각", icon: "👣" },
+            { id: 18, title: "평온을 이룩한 미래 나와의 만남", icon: "🔮" },
+            { id: 19, title: "오래된 오랜 친구와 악수하기", icon: "🤝" },
+            { id: 20, title: "내 인생 버스의 평온한 기사", icon: "🚌" },
+            { id: 21, title: "존엄한 평생 동행 선언하기", icon: "👑" }
+        ];
+
+        // 15 Emotions Guide mapping
+        const emotionGuide = {
+            '걱정': { need: '완벽한 안전과 기도의 응답', question: '지금 내가 온전히 안전하다고 느끼기 위해 필요한 한 가지는 무엇인가요?' },
+            '두려움': { need: '따스한 안식과 굳건한 보호', question: '지금의 내 여린 영혼을 보호해 줄 수 있는 나만의 장치나 행동은 무엇인가요?' },
+            '초조함': { need: '한 가닥 명징한 사실과 도장', question: '상황의 전개와 무관하게 지금 당장 확인할 수 있는 투명한 팩트는 무엇인가요?' },
+            '긴장': { need: '어깨의 이완과 깊은 들이마심', question: '내 가슴과 근육의 굳어진 마디를 미세하게 풀어줄 작은 몸놀림은 무엇인가요?' },
+            '불확실함': { need: '확고한 방향성과 작은 푯대', question: '완전한 대답을 손에 쥐지 못했어도 지금 밟아나갈 수 있는 디딤돌 한 칸은?' },
+            '답답함': { need: '응어리를 밖으로 토해낼 붓', question: '막힌 가슴 아래 차오른 흙탕물을 그대로 글로 써서 소리 내어 읽어볼까요?' },
+            '혼란': { need: '책장의 차분한 정돈과 이름표', question: '나를 소란하게 하는 잡생각들을 단순한 사실, 유령 같은 추측으로 분류한다면?' },
+            '외로움': { need: '다정하게 살 부비는 교감', question: '내 마음을 조건 없이 경청해 주었던 온기가 어린 사람의 얼굴을 떠올려 볼까요?' },
+            '무기력': { need: '죄책감 없는 영혼의 깊은 수면', question: '오늘 해야 할 일의 성벽 가운데 가장 하찮은 한 가지만 남기고 미뤄볼까요?' },
+            '압박감': { need: '무거운 봇짐을 바닥에 내리기', question: '내가 무리하게 어깨에 짊어지고 가던 짐 중, 일부의 책임을 덜어낼 방도는?' },
+            '조급함': { need: '봄꽃이 피기를 유유히 기다릴 줄 아는 배짱', question: '지금 눈앞의 일을 서둘러 결판내지 않아도 세상이 무너지지 않는 진짜 근거는?' },
+            '불안감': { need: '지금 여기 내 뺨을 지나는 바람의 자취', question: '가상의 참상을 뒤로하고, 지금 당신 발가락 끝에 닿아있는 실제 사물은?' },
+            '예민함': { need: '차갑고 눈부신 세상을 잠시 암전시킬 커튼', question: '오늘 저녁 전자기기를 끄고 침묵하는 고즈넉한 어둠을 방 안에 연출해 볼까요?' },
+            '자신 없음': { need: '작고 귀여운 예전의 승리 흔적', question: '아무리 작아도 좋으니, 생애를 통틀어 가장 뿌듯하고 무탈했던 내 결실 하나는?' },
+            '지침': { need: '달콤한 낮잠과 차가운 식혜 한 잔의 호사', question: '지친 심신이 오늘 나에게 간곡하게 빌어오는 최고의 치유적 일탈은 무엇인가요?' }
+        };
+
+        // --- SHARE & SAVE ---
+        function showToast(text) {
+            const t = document.getElementById('toast');
+            t.textContent = text;
+            t.classList.add('show');
+            clearTimeout(showToast._timer);
+            showToast._timer = setTimeout(() => t.classList.remove('show'), 2400);
+        }
+
+        function buildShareText() {
+            return [
+                '🌿 안녕, 나의 불안 — 21일간의 아름다운 동행',
+                '',
+                `오늘은 여정의 Day ${appState.currentDay} / 21`,
+                `내면 안도감 ${document.getElementById('repose-rate').innerText}`,
+                '',
+                '불안은 나를 공격하는 적이 아니라, 나를 지키려는 서툰 보호자입니다.',
+                '더 자세한 이야기는 이야기정원 블로그에서 만나보세요.',
+                '',
+                '- 이야기정원AI by 리오',
+                'https://blog.naver.com/mt2700'
+            ].join('\n');
+        }
+
+        function copyText(text, message) {
+            const dummy = document.createElement('textarea');
+            document.body.appendChild(dummy);
+            dummy.value = text;
+            dummy.select();
+            try {
+                document.execCommand('copy');
+                showToast(message);
+            } catch (e) {
+                showToast('복사에 실패했어요. 직접 선택해 복사해주세요.');
+            }
+            document.body.removeChild(dummy);
+        }
+
+        function shareToKakao() {
+            const text = buildShareText();
+            if (navigator.share) {
+                navigator.share({ title: '안녕, 나의 불안', text }).catch(() => {
+                    copyText(text, '카카오톡에 붙여넣기 좋은 문구를 복사했어요!');
+                });
+            } else {
+                copyText(text, '카카오톡에 붙여넣기 좋은 문구를 복사했어요!');
+            }
+        }
+
+        function copyForBlog() {
+            copyText(buildShareText(), '블로그 본문에 붙여넣기(Ctrl+V) 하실 수 있도록 복사했어요!');
+        }
+
+        // --- CUSTOM MODAL ALERT FUNCTION ---
+        function showCustomAlert(title, msg) {
+            document.getElementById('custom-alert-title').innerText = title;
+            document.getElementById('custom-alert-message').innerText = msg;
+            document.getElementById('custom-alert-modal').classList.remove('hidden');
+        }
+
+        function closeCustomAlert() {
+            document.getElementById('custom-alert-modal').classList.add('hidden');
+        }
+
+        // --- WEB AUDIO API SYNTHESIZER ENGINE ---
+        const AudioEngine = {
+            ctx: null,
+            alarmOsc: null,
+            alarmGain: null,
+            isPlayingAlarm: false,
+
+            init() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+            },
+
+            playTone(freq, type, duration, volume) {
+                this.init();
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+                const osc = this.ctx.createOscillator();
+                const gainNode = this.ctx.createGain();
+                osc.connect(gainNode);
+                gainNode.connect(this.ctx.destination);
+
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                
+                gainNode.gain.setValueAtTime(volume, this.ctx.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + duration);
+
+                osc.start();
+                osc.stop(this.ctx.currentTime + duration);
+            },
+
+            toggleAlarm() {
+                this.init();
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+
+                if (this.isPlayingAlarm) {
+                    this.stopAlarm();
+                } else {
+                    this.startAlarm();
+                }
+            },
+
+            startAlarm() {
+                this.isPlayingAlarm = true;
+                document.getElementById('alarm-btn-text').innerText = "과도한 경고음 해제";
+                document.getElementById('alarm-btn').classList.replace('bg-rose-50', 'bg-rose-600');
+                document.getElementById('alarm-btn').classList.replace('text-rose-600', 'text-white');
+                document.getElementById('alarm-pulsing-glow').classList.remove('hidden');
+
+                // Rhythmic Low Warning Hum Simulation
+                this.alarmOsc = this.ctx.createOscillator();
+                this.alarmGain = this.ctx.createGain();
+                
+                this.alarmOsc.type = 'triangle';
+                this.alarmOsc.frequency.setValueAtTime(150, this.ctx.currentTime); // Gentle but alarming low frequency
+                
+                // LFO to modulate heartbeat pitch speed
+                const lfo = this.ctx.createOscillator();
+                const lfoGain = this.ctx.createGain();
+                lfo.frequency.value = 2.0; // Two pulse beats per second
+                lfoGain.gain.value = 40; 
+                
+                lfo.connect(lfoGain);
+                lfoGain.connect(this.alarmOsc.frequency);
+                
+                this.alarmOsc.connect(this.alarmGain);
+                this.alarmGain.connect(this.ctx.destination);
+                
+                this.alarmGain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+                
+                lfo.start();
+                this.alarmOsc.start();
+            },
+
+            stopAlarm() {
+                this.isPlayingAlarm = false;
+                document.getElementById('alarm-btn-text').innerText = "과도한 경고음 체험 (🚨)";
+                document.getElementById('alarm-btn').classList.replace('bg-rose-600', 'bg-rose-50');
+                document.getElementById('alarm-btn').classList.replace('text-white', 'text-rose-600');
+                document.getElementById('alarm-pulsing-glow').classList.add('hidden');
+
+                if (this.alarmOsc) {
+                    try {
+                        this.alarmOsc.stop();
+                        this.alarmOsc.disconnect();
+                    } catch(e) {}
+                    this.alarmOsc = null;
+                }
+            }
+        };
+
+        // --- INTERACTIVE GROUNDING TECHNIQUES LOGIC ---
+
+        // 1. Water Intake Grounding
+        let waterTimer = null;
+        function triggerWaterGrounding() {
+            AudioEngine.init();
+            AudioEngine.playTone(600, 'sine', 0.2, 0.1); // Calming droplet chirp
+            setTimeout(() => { AudioEngine.playTone(800, 'sine', 0.3, 0.15); }, 100);
+
+            document.getElementById('water-modal').classList.remove('hidden');
+            
+            const liquid = document.getElementById('water-liquid');
+            const ice = document.getElementById('water-ice');
+            const label = document.getElementById('water-timer-text');
+            
+            // 물 컵 가득 채우기 및 얼음 투명도/높이 초기화
+            liquid.style.transition = 'none';
+            liquid.style.height = '100%';
+            ice.style.transition = 'none';
+            ice.style.transform = 'translateY(0)';
+            ice.style.opacity = '0.7';
+            
+            setTimeout(() => {
+                // 10초간 시원하게 빨려 들어가는 선형 소멸 트랜지션 작동
+                liquid.style.transition = 'height 10000ms linear';
+                liquid.style.height = '0%';
+                
+                ice.style.transition = 'transform 10000ms linear, opacity 10000ms linear';
+                ice.style.transform = 'translateY(60px)';
+                ice.style.opacity = '0';
+            }, 50);
+
+            let timeLeft = 10;
+            label.innerText = `차가운 물에 몸을 가라앉히는 중 (${timeLeft}초)`;
+            
+            if (waterTimer) clearInterval(waterTimer);
+            waterTimer = setInterval(() => {
+                timeLeft--;
+                AudioEngine.playTone(250, 'sine', 0.1, 0.05); // Quiet water gulping chime
+                if (timeLeft <= 0) {
+                    clearInterval(waterTimer);
+                    label.innerText = "안도감이 깊게 가라앉았습니다. 눈을 편온하게 감으셔도 좋습니다.";
+                } else {
+                    label.innerText = `차가운 물에 몸을 가라앉히는 중 (${timeLeft}초)`;
+                }
+            }, 1000);
+        }
+
+        function closeWaterModal() {
+            if (waterTimer) clearInterval(waterTimer);
+            document.getElementById('water-modal').classList.add('hidden');
+        }
+
+        // 2. Multi-step sensory 5-4-3-2-1 Grounding Wizard
+        const groundingSteps = [
+            { step: 5, text: "👁️ [5단계: 시각] 지금 눈앞에 또렷이 보이는 **5가지 사물**의 고유한 형태나 색깔, 입체적인 선에 천천히 생각을 머물게 해 봅니다." },
+            { step: 4, text: "🖐️ [4단계: 촉감] 내 몸에 전해지는 **4가지 촉감** (예: 옷감의 부드러움, 나를 단단히 지탱해 주는 의자의 압력, 시원한 바닥 등)을 감각합니다." },
+            { step: 3, text: "👂 [3단계: 청각] 사방에서 조용하게 부는 고요한 소리 등, 지금 나를 채우는 **3가지 미세한 소리**에 집중하여 마음의 창을 열어봅니다." },
+            { step: 2, text: "👃 [2단계: 후각] 당신 주위 공기에 깃든 은근한 **2가지 냄새나 향기**를 조심스레 코로 들이마셔 보며 맑은 숲을 떠올려 보세요." },
+            { step: 1, text: "👅 [1단계: 미각] 지금 내 입안을 채우고 있는 **1가지 수분감이나 남은 맛**을 가만히 자각하며, 침을 한 모금 꿀꺽 마셔봅니다." }
+        ];
+        let currentGroundingIndex = 0;
+
+        function triggerSensoryGrounding() {
+            currentGroundingIndex = 0;
+            updateGroundingStepUI();
+            document.getElementById('grounding-modal').classList.remove('hidden');
+        }
+
+        function updateGroundingStepUI() {
+            const data = groundingSteps[currentGroundingIndex];
+            document.getElementById('grounding-step-badge').innerText = `${data.step}단계 접지`;
+            document.getElementById('grounding-instruction').innerHTML = data.text;
+            
+            const bar = document.getElementById('grounding-progress-bar');
+            bar.style.width = `${((currentGroundingIndex + 1) / 5) * 100}%`;
+
+            const prevBtn = document.getElementById('grounding-prev-btn');
+            const nextBtn = document.getElementById('grounding-next-btn');
+
+            if (currentGroundingIndex === 0) {
+                prevBtn.classList.add('hidden');
+            } else {
+                prevBtn.classList.remove('hidden');
+            }
+
+            if (currentGroundingIndex === 4) {
+                nextBtn.innerText = "영토 정착 완료";
+            } else {
+                nextBtn.innerText = "확인했습니다";
+            }
+
+            AudioEngine.playTone(400 + (currentGroundingIndex * 80), 'sine', 0.15, 0.08);
+        }
+
+        function nextGroundingStep() {
+            if (currentGroundingIndex < 4) {
+                currentGroundingIndex++;
+                updateGroundingStepUI();
+            } else {
+                document.getElementById('grounding-modal').classList.add('hidden');
+                showCustomAlert("현실 안착 성공 🌿", "주변 오감을 통해 뇌가 느끼던 상상 속 위험 신호들을 말끔히 잠재웠습니다.");
+            }
+        }
+
+        function prevGroundingStep() {
+            if (currentGroundingIndex > 0) {
+                currentGroundingIndex--;
+                updateGroundingStepUI();
+            }
+        }
+
+        // 3. Butterfly Hug Grounding (Left-Right Tapping)
+        let butterflyInterval = null;
+        function triggerButterflyGrounding() {
+            AudioEngine.init();
+            document.getElementById('butterfly-modal').classList.remove('hidden');
+            
+            const leftWing = document.getElementById('wing-left');
+            const rightWing = document.getElementById('wing-right');
+            const label = document.getElementById('butterfly-status');
+            
+            let toggle = true; // true: L, false: R
+            let cycleCount = 0;
+
+            if (butterflyInterval) clearInterval(butterflyInterval);
+            
+            butterflyInterval = setInterval(() => {
+                leftWing.classList.remove('bg-emerald-500', 'text-white', 'scale-110');
+                rightWing.classList.remove('bg-emerald-500', 'text-white', 'scale-110');
+
+                if (toggle) {
+                    leftWing.classList.add('bg-emerald-500', 'text-white', 'scale-110');
+                    label.innerText = "왼쪽 어깨 토닥 (토닥...)";
+                    AudioEngine.playTone(180, 'sine', 0.25, 0.25);
+                } else {
+                    rightWing.classList.add('bg-emerald-500', 'text-white', 'scale-110');
+                    label.innerText = "오른쪽 어깨 토닥 (...토닥)";
+                    AudioEngine.playTone(220, 'sine', 0.25, 0.25);
+                }
+
+                toggle = !toggle;
+                cycleCount++;
+
+                if (cycleCount >= 16) {
+                    clearInterval(butterflyInterval);
+                    label.innerText = "나비 포옹 완료. 마음이 은은하고 따뜻해집니다.";
+                    leftWing.classList.remove('bg-emerald-500', 'text-white', 'scale-110');
+                    rightWing.classList.remove('bg-emerald-500', 'text-white', 'scale-110');
+                }
+            }, 1200); // Relaxed pace tap
+        }
+
+        function closeButterflyModal() {
+            if (butterflyInterval) clearInterval(butterflyInterval);
+            document.getElementById('butterfly-modal').classList.add('hidden');
+        }
+
+        // NAVIGATION SWITCHER
+        function showSection(sectionId) {
+            document.querySelectorAll('main > section').forEach(s => s.classList.add('hidden'));
+            document.getElementById(sectionId).classList.remove('hidden');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            
+            if (sectionId === 'insights') {
+                updateCharts();
+            }
+        }
+
+        // MOBILE MENU TOGGLER
+        function toggleMobileMenu() {
+            const menu = document.getElementById('mobile-menu');
+            if (menu.classList.contains('hidden')) {
+                menu.classList.remove('hidden');
+            } else {
+                menu.classList.add('hidden');
+            }
+        }
+
+        // RENDER PROGRESS MAP
+        function renderDashboard() {
+            const grid = document.getElementById('journey-grid');
+            grid.innerHTML = '';
+            for (let i = 1; i <= 21; i++) {
+                const data = journeyData.find(d => d.id === i) || { id: i, title: `Day ${i} 여정`, icon: "🌱" };
+                const isCompleted = appState.completedDays.includes(i);
+                const isActive = appState.currentDay === i;
+
+                const card = document.createElement('div');
+                card.className = `day-card relative h-28 rounded-2xl border bg-white flex flex-col items-center justify-center p-3 text-center transition-all cursor-pointer hover:shadow-md
+                    ${isCompleted ? 'completed border-emerald-200' : 'border-slate-100'}
+                    ${isActive ? 'active border-slate-600 ring-2 ring-slate-100 shadow-lg' : ''}`;
+                
+                card.innerHTML = `
+                    <span class="text-[9px] absolute top-2.5 left-3 font-mono font-bold ${isCompleted ? 'text-emerald-500' : 'text-slate-300'}">D-${i}</span>
+                    <span class="text-3xl mb-1.5 filter drop-shadow-sm">${isCompleted ? '💖' : data.icon}</span>
+                    <span class="text-[13px] font-bold text-slate-600 leading-tight block w-full px-1 line-clamp-2">${data.title}</span>
+                `;
+                card.onclick = () => startDay(i);
+                grid.appendChild(card);
+            }
+        }
+
+        // LAUNCH SELECTED DAY
+        function startDay(day) {
+            if (day > appState.currentDay && !appState.completedDays.includes(day - 1)) {
+                showCustomAlert("천천히 가요 🌿", "불안과의 동행은 단계를 밟아 성찰해 나가는 것이 이롭습니다. 이전 일기를 먼저 완성해 주세요.");
+                return;
+            }
+            const data = journeyData.find(d => d.id === day) || { id: day, title: `Day ${day}: 새로운 정화`, icon: "🌱" };
+            document.getElementById('daily-title').innerText = `Day ${day}: ${data.title}`;
+            document.getElementById('daily-icon').innerText = data.icon;
+            
+            document.getElementById('fear-text').value = '';
+            document.getElementById('reframe-text').value = '';
+            appState.activeMood = null;
+            document.getElementById('need-card').classList.add('hidden');
+            
+            document.querySelectorAll('.mood-btn').forEach(b => {
+                b.classList.remove('bg-slate-100', 'border-slate-400', 'ring-2', 'ring-slate-150');
+                const boxSpan = b.querySelector('span:last-child');
+                if (boxSpan) boxSpan.innerText = '□';
+            });
+
+            showSection('daily');
+            nextStep(1);
+        }
+
+        // UPDATE INPUT RANGE
+        function updateRangeText(val) {
+            document.getElementById('range-value-display').innerText = `수치: ${val}`;
+        }
+
+        // EMOTION SELECTION
+        function selectMood(btn, mood) {
+            document.querySelectorAll('.mood-btn').forEach(b => {
+                b.classList.remove('bg-slate-100', 'border-slate-400', 'ring-2', 'ring-slate-150');
+                const boxSpan = b.querySelector('span:last-child');
+                if (boxSpan) boxSpan.innerText = '□';
+            });
+
+            btn.classList.add('bg-slate-100', 'border-slate-400', 'ring-2', 'ring-slate-150');
+            const boxSpan = btn.querySelector('span:last-child');
+            if (boxSpan) boxSpan.innerText = '▣';
+
+            appState.activeMood = mood;
+            const guide = emotionGuide[mood];
+            
+            document.getElementById('selected-emotion').innerText = mood;
+            document.getElementById('selected-need').innerText = guide.need;
+            document.getElementById('selected-question').innerText = guide.question;
+            document.getElementById('need-card').classList.remove('hidden');
+        }
+
+        // WIZARD STEP CONTROLLER
+        function nextStep(step) {
+            if (step === 2 && !appState.activeMood) {
+                showCustomAlert("마음 알아채기 🌿", "지금 당신을 가장 흔들어 놓는 정서적 고유 단어를 단 한 가지만 다정하게 선택해 주세요.");
+                return;
+            }
+            if (step === 3) {
+                const fearVal = document.getElementById('fear-text').value.trim();
+                const reframeVal = document.getElementById('reframe-text').value.trim();
+                if (!fearVal || !reframeVal) {
+                    showCustomAlert("정돈하기 ✏️", "경고장과 보호의 숨은 의미를 한 문장이라도 적어주시면 안도의 자양분이 됩니다.");
+                    return;
+                }
+            }
+            document.querySelectorAll('.step').forEach(s => s.classList.add('hidden'));
+            document.getElementById(`step-${step}`).classList.remove('hidden');
+        }
+
+        // FINISH LOG FOR THE DAY
+        function finishDaily() {
+            if (!appState.completedDays.includes(appState.currentDay)) {
+                appState.completedDays.push(appState.currentDay);
+                
+                const intensity = parseInt(document.getElementById('anxiety-range').value);
+                appState.anxietyLogs.shift();
+                appState.anxietyLogs.push(intensity);
+                
+                if (appState.activeMood) {
+                    appState.moodDistribution[appState.activeMood] = (appState.moodDistribution[appState.activeMood] || 0) + 1;
+                }
+                
+                appState.currentDay++;
+                localStorage.setItem('anxiety21State', JSON.stringify(appState));
+            }
+            
+            const finishedRatio = Math.min(100, Math.round((appState.completedDays.length / 21) * 100));
+            document.getElementById('repose-rate').innerText = `${60 + Math.round(finishedRatio * 0.4)}%`;
+
+            updateProgressUI();
+            renderDashboard();
+            showSection('dashboard');
+            showCustomAlert("정화의 일기 등록 🌳", "오늘의 불안 성찰 기록이 마인드 아카이브에 성공적으로 편입되었습니다.");
+        }
+
+        function updateProgressUI() {
+            document.getElementById('progress-text').innerText = `Day ${appState.currentDay} / 21`;
+        }
+
+        // --- Charting ---
+        let anxietyChart, moodChart;
+
+        function initCharts() {
+            const anxietyCtx = document.getElementById('anxietyChart').getContext('2d');
+            anxietyChart = new Chart(anxietyCtx, {
+                type: 'line',
+                data: {
+                    labels: ['7일 전', '6일 전', '5일 전', '4일 전', '3일 전', '어제', '오늘'],
+                    datasets: [{
+                        label: '불안 체감도',
+                        data: appState.anxietyLogs,
+                        borderColor: '#0d9488',
+                        backgroundColor: 'rgba(13, 148, 136, 0.08)',
+                        fill: true,
+                        tension: 0.35,
+                        pointRadius: 4,
+                        pointBackgroundColor: '#0d9488',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { 
+                        legend: { display: false } 
+                    },
+                    scales: { 
+                        y: { 
+                            min: 0, 
+                            max: 100, 
+                            grid: { color: 'rgba(241, 245, 249, 1)' },
+                            ticks: { font: { size: 9 }, stepSize: 20 } 
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { font: { size: 9 } }
+                        }
+                    }
+                }
+            });
+
+            const moodCtx = document.getElementById('moodChart').getContext('2d');
+            moodChart = new Chart(moodCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(appState.moodDistribution),
+                    datasets: [{
+                        data: Object.values(appState.moodDistribution),
+                        backgroundColor: [
+                            '#0d9488', '#14b8a6', '#2dd4bf', '#5eead4', '#99f6e4',
+                            '#0f766e', '#0e7490', '#22d3ee', '#67e8f9', '#a5f3fc',
+                            '#134e4a', '#115e59', '#0891b2', '#7dd3fc', '#ccfbf1'
+                        ],
+                        borderWidth: 1.5,
+                        borderColor: '#ffffff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '72%',
+                    plugins: { 
+                        legend: { 
+                            position: 'bottom', 
+                            labels: { 
+                                boxWidth: 8, 
+                                font: { size: 9 }, 
+                                padding: 8 
+                            } 
+                        } 
+                    }
+                }
+            });
+        }
+
+        function updateCharts() {
+            if (anxietyChart && moodChart) {
+                anxietyChart.data.datasets[0].data = appState.anxietyLogs;
+                anxietyChart.update();
+                
+                moodChart.data.datasets[0].data = Object.values(appState.moodDistribution);
+                moodChart.update();
+            }
+        }
+
+        // --- Breathing ---
+        let breathingTimer = null;
+        function startBreathingAnimation() {
+            const circle = document.getElementById('breath-circle');
+            if (!circle) return;
+            
+            if (breathingTimer) clearInterval(breathingTimer);
+
+            function runCycle() {
+                // Step 1: Inhale (4s)
+                circle.style.transition = 'all 4000ms ease-in-out';
+                circle.style.transform = 'scale(1.25)';
+                circle.style.backgroundColor = '#14b8a6'; 
+                circle.innerHTML = `<div class="text-center leading-relaxed"><p class="font-bold">숨 들이마시기</p><p class="text-[13px] opacity-80 mt-1">4초 동안 가볍게</p></div>`;
+                
+                setTimeout(() => {
+                    // Step 2: Hold (3s)
+                    circle.style.transition = 'all 3000ms ease-in-out';
+                    circle.style.backgroundColor = '#0d9488'; 
+                    circle.innerHTML = `<div class="text-center leading-relaxed"><p class="font-bold">조용히 멈추기</p><p class="text-[13px] opacity-80 mt-1">3초 동안 고요히</p></div>`;
+                    
+                    setTimeout(() => {
+                        // Step 3: Exhale (4s)
+                        circle.style.transition = 'all 4000ms ease-in-out';
+                        circle.style.transform = 'scale(1.0)';
+                        circle.style.backgroundColor = '#2dd4bf'; 
+                        circle.innerHTML = `<div class="text-center leading-relaxed"><p class="font-bold">편안히 내쉬기</p><p class="text-[13px] opacity-80 mt-1">4초 동안 부드럽게</p></div>`;
+                    }, 3000);
+                    
+                }, 4000);
+            }
+            
+            runCycle();
+            breathingTimer = setInterval(runCycle, 11000); 
+        }
+
+        // Initialize App on window loaded
+        window.onload = function() {
+            const saved = localStorage.getItem('anxiety21State');
+            if (saved) {
+                try { 
+                    appState = { ...appState, ...JSON.parse(saved) }; 
+                } catch (e) {
+                    console.error("Localstorage recovery failed, continuing with initial state.", e);
+                }
+            }
+            renderDashboard();
+            initCharts();
+            startBreathingAnimation();
+            updateProgressUI();
+            
+            const finishedRatio = Math.min(100, Math.round((appState.completedDays.length / 21) * 100));
+            document.getElementById('repose-rate').innerText = `${60 + Math.round(finishedRatio * 0.4)}%`;
+        };
+    </script>
+</body>
+</html>
